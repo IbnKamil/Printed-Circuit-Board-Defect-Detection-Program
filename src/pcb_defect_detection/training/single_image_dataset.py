@@ -118,6 +118,9 @@ def _collect_samples(root: Path) -> list[tuple[Path, int]]:
             if image_path.is_file() and image_path.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS:
                 samples.append((image_path, label))
 
+    if not samples:
+        samples = _collect_deeppcb_as_binary_samples(root)
+
     labels = {label for _path, label in samples}
     if samples and labels != {0, 1}:
         raise DatasetError(
@@ -133,3 +136,18 @@ def _label_from_folder(folder_name: str) -> int | None:
     if normalized in DEFECTIVE_FOLDER_NAMES:
         return 1
     return None
+
+
+def _collect_deeppcb_as_binary_samples(root: Path) -> list[tuple[Path, int]]:
+    """Treat DeepPCB *_temp images as normal and *_test images as defective."""
+
+    samples: list[tuple[Path, int]] = []
+    for image_path in root.rglob("*"):
+        if not image_path.is_file() or image_path.suffix.lower() not in SUPPORTED_IMAGE_EXTENSIONS:
+            continue
+        stem = image_path.stem.lower()
+        if stem.endswith("_temp") or stem.endswith("_template"):
+            samples.append((image_path, 0))
+        elif stem.endswith("_test") or stem.endswith("_tested"):
+            samples.append((image_path, 1))
+    return samples

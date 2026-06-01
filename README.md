@@ -121,14 +121,20 @@ DeepPCB содержит 1500 выровненных пар изображени
 - tested image - плата с возможным дефектом;
 - annotation file - bounding boxes и label id.
 
-Проект не скачивает датасет автоматически. Укажите локальную папку DeepPCB:
+В репозиторий добавлена официальная копия DeepPCB из
+`https://github.com/tangsanli5201/DeepPCB` для research/учебного использования.
+Данные лежат в:
 
 ```text
-data/deeppcb/
-├── train/
-├── val/
-└── test/
+data/deeppcb/PCBData/
+├── group00041/
+├── group12000/
+└── ...
 ```
+
+Файл лицензии upstream сохранен как `data/deeppcb/LICENSE.DeepPCB`. Если вы
+хотите использовать другую локальную копию DeepPCB, укажите ее через manifest
+или переменную окружения для Streamlit single-image режима.
 
 Парсер также умеет искать пары рекурсивно по типичным именам:
 `*_temp.*`, `*_template.*`, `*_test.*`, `*_tested.*` и annotation-файлы
@@ -233,30 +239,28 @@ outputs/single_image_model.pt
 - распределение классов `normal/defective`;
 - validation/test accuracy, precision, recall, F1 и loss.
 
-Если checkpoint отсутствует, приложение пробует обучить модель из локального
-датасета без элементов загрузки датасета в UI. По умолчанию датасет ожидается в:
+Если checkpoint отсутствует, приложение обучает single-image модель из
+добавленного DeepPCB dataset:
 
 ```text
-data/single_image/
-├── normal/
-│   ├── image_001.jpg
-│   └── ...
-└── defective/
-    ├── image_101.jpg
-    └── ...
+data/deeppcb/PCBData/
 ```
 
-Если датасет лежит в другом месте, перед запуском Streamlit можно указать путь:
+Для single-image режима загрузчик трактует изображения DeepPCB так:
+
+- `*_temp.jpg` -> `normal`;
+- `*_test.jpg` -> `defective`.
+
+Если нужен другой датасет, перед запуском Streamlit можно указать путь:
 
 ```powershell
-$env:PCB_SINGLE_IMAGE_DATASET_DIR="C:\path	o\dataset"
+$env:PCB_SINGLE_IMAGE_DATASET_DIR="C:\path\to\dataset"
 streamlit run app/streamlit_app.py
 ```
 
-Важно: single-image режим требует реальных размеченных изображений
-`normal/defective`. DeepPCB reference-based pipeline и CLI остаются в проекте для
-обучения/оценки по паре `template + tested`, но Streamlit показывает только
-одиночную проверку изображения.
+Важно: DeepPCB изначально является reference-based датасетом. Single-image
+режим использует его как учебное бинарное приближение для удобной демонстрации:
+одна фотография на входе, зеленый/красный результат на выходе.
 
 ## 9. Обучение CNN-классификатора патчей
 

@@ -1,6 +1,17 @@
-# Single-image dataset
+# Optional single-image dataset
 
-Place the local dataset for Streamlit auto-training here:
+The repository now includes DeepPCB in:
+
+```text
+data/deeppcb/PCBData/
+```
+
+Streamlit uses that folder by default. For the single-image demo, images named
+`*_temp.jpg` are treated as `normal`, and images named `*_test.jpg` are treated
+as `defective`.
+
+You only need this `data/single_image/` folder if you want to replace DeepPCB
+with your own binary dataset:
 
 ```text
 data/single_image/
@@ -12,17 +23,7 @@ data/single_image/
     └── ...
 ```
 
-When `app/streamlit_app.py` starts, it checks for:
-
-```text
-outputs/single_image_model.pt
-```
-
-If the checkpoint exists, the app loads it and prints metrics/dataset counts in
-the PyCharm console. If it does not exist, the app trains a model from this
-folder and then saves the checkpoint.
-
-You can use another local dataset path by setting:
+To use a custom dataset without moving files, set:
 
 ```powershell
 $env:PCB_SINGLE_IMAGE_DATASET_DIR="C:\path\to\dataset"

@@ -22,6 +22,18 @@ def test_single_image_dataset_loads_normal_and_defective(tmp_path: Path) -> None
     assert set(labels) == {0, 1}
 
 
+def test_single_image_dataset_loads_deeppcb_temp_and_test_images(tmp_path: Path) -> None:
+    group = tmp_path / "group00041" / "00041"
+    group.mkdir(parents=True)
+    Image.fromarray(np.zeros((16, 16, 3), dtype=np.uint8)).save(group / "00041000_temp.jpg")
+    Image.fromarray(np.ones((16, 16, 3), dtype=np.uint8) * 255).save(group / "00041000_test.jpg")
+
+    dataset = SingleImageFolderDataset(tmp_path, image_size=32)
+
+    labels = [int(dataset[index][1].item()) for index in range(len(dataset))]
+    assert sorted(labels) == [0, 1]
+
+
 def test_train_and_predict_single_image_classifier(tmp_path: Path) -> None:
     dataset_root = _create_tiny_binary_dataset(tmp_path / "dataset")
     checkpoint_path = tmp_path / "single_image_model.pt"

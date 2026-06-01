@@ -16,7 +16,7 @@ from pcb_defect_detection.models.single_image_cnn import predict_single_image
 from pcb_defect_detection.training.single_image_startup import ensure_single_image_model
 
 DEFAULT_SINGLE_MODEL_PATH = ROOT / "outputs" / "single_image_model.pt"
-DEFAULT_DATASET_ROOT = ROOT / "data" / "single_image"
+DEFAULT_DATASET_ROOT = ROOT / "data" / "deeppcb" / "PCBData"
 
 
 @st.cache_resource(show_spinner=False)
@@ -26,6 +26,9 @@ def _startup_model_check() -> dict:
     return ensure_single_image_model(
         checkpoint_path=DEFAULT_SINGLE_MODEL_PATH,
         default_dataset_root=DEFAULT_DATASET_ROOT,
+        epochs=3,
+        batch_size=32,
+        image_size=128,
     )
 
 
