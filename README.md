@@ -241,12 +241,19 @@ streamlit run app/streamlit_app.py
 дефекты занимают малую часть кадра.
 
 При запуске Streamlit больше не обучает модель автоматически и не блокирует UI.
-В консоль PyCharm выводится информация:
+В консоль PyCharm выводится читабельный отчет:
 
+- основной метод inference для DeepPCB;
 - путь к DeepPCB dataset;
-- выбранный режим inference;
+- train/validation/test counts, если они сохранены в checkpoint;
 - наличие или отсутствие fallback checkpoint;
-- если checkpoint есть - его сохраненные метрики и размеры выборок.
+- validation/test метрики fallback CNN, если checkpoint есть.
+
+Если в отчете fallback CNN показывает accuracy около `0.5`, это не означает,
+что текущая DeepPCB-проверка работает плохо. Эта CNN обучалась классифицировать
+всё изображение целиком и плохо подходит для маленьких локальных дефектов.
+Основной Streamlit-сценарий для файлов `*_temp.jpg` и `*_test.jpg` использует
+reference-based сравнение с template и не опирается на эту fallback accuracy.
 
 Датасет DeepPCB уже добавлен в проект:
 

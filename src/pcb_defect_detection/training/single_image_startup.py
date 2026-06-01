@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 from typing import Any
@@ -30,7 +29,7 @@ def ensure_single_image_model(
     if checkpoint_path.exists():
         summary = load_single_image_training_summary(checkpoint_path)
         summary["status"] = "loaded_existing_model"
-        _print_startup_summary(summary)
+        print(format_single_image_startup_report(summary, dataset_root))
         return summary
 
     print("[PCB Streamlit] Single-image model checkpoint was not found.")
@@ -50,25 +49,108 @@ def ensure_single_image_model(
         "dataset": metrics.get("dataset", {}),
         "image_size": image_size,
     }
-    _print_startup_summary(summary)
+    print(format_single_image_startup_report(summary, dataset_root))
     return summary
 
 
-def _print_startup_summary(summary: dict[str, Any]) -> None:
-    print("\n========== PCB SINGLE-IMAGE MODEL SUMMARY ==========")
-    print(f"Status: {summary.get('status', 'unknown')}")
-    print(f"Checkpoint: {summary.get('checkpoint_path', 'unknown')}")
-    print(f"Image size: {summary.get('image_size', 'unknown')}")
-    print("\nDataset counts:")
-    dataset = summary.get("dataset", {})
-    if dataset:
-        print(json.dumps(dataset, indent=2, ensure_ascii=False))
+def format_single_image_startup_report(
+    summary: dict[str, Any],
+    dataset_root: Path,
+) -> str:
+    """Format startup information as a readable PyCharm console report."""
+
+    checkpoint_path = summary.get("checkpoint_path") or "not found"
+    image_size = summary.get("image_size") or "unknown"
+    metrics = summary.get("metrics", {}) or {}
+    dataset = summary.get("dataset") or metrics.get("dataset", {}) or {}
+    lines = [
+        "",
+        "========== PCB STREAMLIT STARTUP REPORT =========",
+        "PRIMARY METHOD",
+        "  Mode       : DeepPCB-aware one-image upload",
+        "  *_temp.jpg : NORMAL, template image is known defect-free",
+        "  *_test.jpg : compared with matching hidden *_temp.jpg template",
+        "  Note       : This is the method used for DeepPCB images in the UI.",
+        "",
+        "DATASET",
+        f"  DeepPCB root : {dataset_root}",
+        _format_dataset_counts(dataset),
+        "",
+        "FALLBACK CNN CHECKPOINT",
+        f"  Path       : {checkpoint_path}",
+        f"  Image size : {image_size}",
+    ]
+
+    if checkpoint_path == "not found":
+        lines.extend(
+            [
+                "  Status     : fallback CNN is absent",
+                "  Impact     : DeepPCB *_temp/*_test images still work via template lookup.",
+            ]
+        )
     else:
-        print("No dataset counts stored in checkpoint.")
-    print("\nMetrics:")
-    metrics = summary.get("metrics", {})
-    if metrics:
-        print(json.dumps(metrics, indent=2, ensure_ascii=False))
-    else:
-        print("No metrics stored in checkpoint.")
-    print("====================================================\n")
+        lines.extend(
+            [
+                "  Status     : fallback CNN is available",
+                "  Usage      : only for non-DeepPCB filenames; not used for *_temp/*_test.",
+                _format_metrics_table(metrics),
+                "  Interpretation:",
+                "    Low fallback CNN accuracy is expected on DeepPCB because tiny defects",
+                "    are hard to classify from a whole image without the reference template.",
+                "    The Streamlit DeepPCB workflow uses hidden template comparison instead.",
+            ]
+        )
+
+    lines.append("==================================================")
+    return "\n".join(lines)
+
+
+def _format_dataset_counts(dataset: dict[str, Any]) -> str:
+    if not dataset:
+        return "  Counts     : no dataset counts stored in checkpoint"
+
+    rows = [
+        ("total", dataset.get("total"), dataset.get("total_by_class", {})),
+        ("train", dataset.get("train"), dataset.get("train_by_class", {})),
+        ("validation", dataset.get("validation"), dataset.get("validation_by_class", {})),
+        ("test", dataset.get("test"), dataset.get("test_by_class", {})),
+    ]
+    lines = ["  Split        Total    Normal    Defective"]
+    for name, total, by_class in rows:
+        if total is None:
+            continue
+        normal = by_class.get("normal", "-") if isinstance(by_class, dict) else "-"
+        defective = by_class.get("defective", "-") if isinstance(by_class, dict) else "-"
+        lines.append(f"  {name:<11} {int(total):>5} {str(normal):>9} {str(defective):>12}")
+    return "\n".join(lines)
+
+
+def _format_metrics_table(metrics: dict[str, Any]) -> str:
+    validation = metrics.get("validation", {}) if isinstance(metrics, dict) else {}
+    test = metrics.get("test", {}) if isinstance(metrics, dict) else {}
+    if not validation and not test:
+        return "  Metrics    : no validation/test metrics stored in checkpoint"
+
+    lines = ["", "  Split          Loss   Accuracy  Precision     Recall         F1"]
+    for name, values in (("validation", validation), ("test", test)):
+        if not values:
+            continue
+        lines.append(
+            "  "
+            f"{name:<10} "
+            f"{_fmt(values.get('loss')):>8} "
+            f"{_fmt(values.get('accuracy')):>10} "
+            f"{_fmt(values.get('precision')):>10} "
+            f"{_fmt(values.get('recall')):>10} "
+            f"{_fmt(values.get('f1')):>10}"
+        )
+    return "\n".join(lines)
+
+
+def _fmt(value: Any) -> str:
+    if value is None:
+        return "-"
+    try:
+        return f"{float(value):.3f}"
+    except (TypeError, ValueError):
+        return str(value)

@@ -13,6 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from pcb_defect_detection.inference.single_image import predict_uploaded_pcb_image
+from pcb_defect_detection.training.single_image_startup import (
+    format_single_image_startup_report,
+)
 from pcb_defect_detection.training.train_single_image_classifier import (
     load_single_image_training_summary,
 )
@@ -25,21 +28,12 @@ DEFAULT_DATASET_ROOT = ROOT / "data" / "deeppcb" / "PCBData"
 def _startup_model_check() -> dict:
     """Log model/dataset information once without blocking UI training."""
 
-    print("\n========== PCB STREAMLIT STARTUP ==========")
-    print(f"DeepPCB dataset root: {DEFAULT_DATASET_ROOT}")
-    print("Primary inference mode: one-upload DeepPCB-aware template lookup")
-    print("  *_temp.jpg -> normal")
-    print("  *_test.jpg -> hidden comparison with matching *_temp.jpg")
     if DEFAULT_SINGLE_MODEL_PATH.exists():
         summary = load_single_image_training_summary(DEFAULT_SINGLE_MODEL_PATH)
-        print("Fallback single-image CNN checkpoint found:")
-        print(summary)
-        print("===========================================\n")
-        return summary
-    print("Fallback single-image CNN checkpoint not found; startup training is skipped.")
-    print("DeepPCB *_test/*_temp images still work through hidden template comparison.")
-    print("===========================================\n")
-    return {"checkpoint_path": None}
+    else:
+        summary = {"checkpoint_path": None}
+    print(format_single_image_startup_report(summary, DEFAULT_DATASET_ROOT))
+    return summary
 
 
 def _render_status_square(is_defective: bool) -> None:
