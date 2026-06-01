@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
+from typing import Any
 
 import torch
 from PIL import Image
-from torch.utils.data import Dataset, random_split
+from torch.utils.data import Dataset, Subset, random_split
 
 from pcb_defect_detection.config import SUPPORTED_IMAGE_EXTENSIONS
 from pcb_defect_detection.models.single_image_cnn import pil_to_rgb_array, preprocess_single_image
@@ -44,20 +46,59 @@ class SingleImageFolderDataset(Dataset):
 
 def split_single_image_dataset(
     dataset: SingleImageFolderDataset,
-    val_ratio: float = 0.2,
+    val_ratio: float = 0.15,
+    test_ratio: float = 0.15,
     seed: int = 42,
-) -> tuple[Dataset, Dataset]:
-    """Split dataset into train and validation subsets."""
+) -> tuple[Subset, Subset, Subset]:
+    """Split dataset into train, validation and test subsets."""
 
-    if len(dataset) < 2:
-        raise DatasetError("At least two images are required for train/validation split.")
+    if len(dataset) < 3:
+        raise DatasetError("At least three images are required for train/val/test split.")
+    test_size = max(1, int(round(len(dataset) * test_ratio)))
     val_size = max(1, int(round(len(dataset) * val_ratio)))
-    train_size = len(dataset) - val_size
+    train_size = len(dataset) - val_size - test_size
     if train_size < 1:
         train_size = 1
-        val_size = len(dataset) - 1
+        remaining = len(dataset) - train_size
+        val_size = max(1, remaining // 2)
+        test_size = remaining - val_size
+    if test_size < 1:
+        raise DatasetError("Dataset is too small to create a non-empty test split.")
     generator = torch.Generator().manual_seed(seed)
-    return random_split(dataset, [train_size, val_size], generator=generator)
+    return random_split(dataset, [train_size, val_size, test_size], generator=generator)
+
+
+def describe_single_image_dataset(
+    dataset: SingleImageFolderDataset,
+    train_dataset: Subset | None = None,
+    val_dataset: Subset | None = None,
+    test_dataset: Subset | None = None,
+) -> dict[str, Any]:
+    """Return dataset and split counts for console logging/checkpoints."""
+
+    summary: dict[str, Any] = {
+        "dataset_root": str(dataset.root),
+        "total": len(dataset),
+        "total_by_class": _count_labels(dataset, range(len(dataset))),
+    }
+    if train_dataset is not None:
+        summary["train"] = len(train_dataset)
+        summary["train_by_class"] = _count_labels(dataset, train_dataset.indices)
+    if val_dataset is not None:
+        summary["validation"] = len(val_dataset)
+        summary["validation_by_class"] = _count_labels(dataset, val_dataset.indices)
+    if test_dataset is not None:
+        summary["test"] = len(test_dataset)
+        summary["test_by_class"] = _count_labels(dataset, test_dataset.indices)
+    return summary
+
+
+def _count_labels(dataset: SingleImageFolderDataset, indices) -> dict[str, int]:
+    labels = Counter(dataset.samples[index][1] for index in indices)
+    return {
+        "normal": int(labels.get(0, 0)),
+        "defective": int(labels.get(1, 0)),
+    }
 
 
 def _collect_samples(root: Path) -> list[tuple[Path, int]]:

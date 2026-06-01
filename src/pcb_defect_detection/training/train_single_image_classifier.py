@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import torch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
@@ -16,6 +17,7 @@ from pcb_defect_detection.models.single_image_cnn import (
 )
 from pcb_defect_detection.training.single_image_dataset import (
     SingleImageFolderDataset,
+    describe_single_image_dataset,
     split_single_image_dataset,
 )
 from pcb_defect_detection.utils.seed import set_seed
@@ -30,52 +32,80 @@ def train_single_image_classifier(
     learning_rate: float = 1e-3,
     seed: int = 42,
     device: str | None = None,
-) -> dict[str, float]:
+) -> dict[str, Any]:
     """Train and save a binary normal/defective PCB classifier."""
 
     set_seed(seed)
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     dataset = SingleImageFolderDataset(dataset_root, image_size=image_size)
-    train_dataset, val_dataset = split_single_image_dataset(dataset, seed=seed)
+    train_dataset, val_dataset, test_dataset = split_single_image_dataset(dataset, seed=seed)
+    dataset_summary = describe_single_image_dataset(
+        dataset,
+        train_dataset=train_dataset,
+        val_dataset=val_dataset,
+        test_dataset=test_dataset,
+    )
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     model = SingleImageCNN(num_classes=len(SINGLE_IMAGE_CLASS_NAMES)).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     best_f1 = -1.0
-    best_metrics: dict[str, float] = {}
+    best_payload: dict[str, Any] = {}
     history: list[dict[str, float]] = []
 
     for epoch in range(1, epochs + 1):
         train_loss = _train_one_epoch(model, train_loader, criterion, optimizer, device)
-        val_loss, metrics = _evaluate(model, val_loader, criterion, device)
-        history.append(
-            {
-                "epoch": float(epoch),
-                "train_loss": train_loss,
-                "val_loss": val_loss,
-                **metrics,
+        val_loss, val_metrics = _evaluate(model, val_loader, criterion, device)
+        row = {
+            "epoch": float(epoch),
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+            **{f"val_{key}": value for key, value in val_metrics.items()},
+        }
+        history.append(row)
+        if val_metrics["f1"] >= best_f1:
+            best_f1 = val_metrics["f1"]
+            test_loss, test_metrics = _evaluate(model, test_loader, criterion, device)
+            best_payload = {
+                "validation": {"loss": val_loss, **val_metrics},
+                "test": {"loss": test_loss, **test_metrics},
+                "dataset": dataset_summary,
+                "epochs_trained": epoch,
+                "device": device,
             }
-        )
-        if metrics["f1"] >= best_f1:
-            best_f1 = metrics["f1"]
-            best_metrics = {"val_loss": val_loss, **metrics}
             output_path.parent.mkdir(parents=True, exist_ok=True)
             torch.save(
                 {
                     "model_state_dict": model.state_dict(),
                     "class_names": SINGLE_IMAGE_CLASS_NAMES,
                     "image_size": image_size,
-                    "metrics": best_metrics,
+                    "metrics": best_payload,
+                    "dataset": dataset_summary,
                 },
                 output_path,
             )
 
     history_path = output_path.with_suffix(".history.json")
     history_path.write_text(json.dumps(history, indent=2), encoding="utf-8")
-    return best_metrics
+    return best_payload
+
+
+def load_single_image_training_summary(checkpoint_path: Path) -> dict[str, Any]:
+    """Load metrics and dataset counts stored in a single-image checkpoint."""
+
+    checkpoint = torch.load(Path(checkpoint_path), map_location="cpu")
+    metrics = checkpoint.get("metrics", {})
+    dataset = checkpoint.get("dataset", metrics.get("dataset", {}))
+    return {
+        "checkpoint_path": str(checkpoint_path),
+        "image_size": int(checkpoint.get("image_size", 224)),
+        "metrics": metrics,
+        "dataset": dataset,
+    }
 
 
 def _train_one_epoch(

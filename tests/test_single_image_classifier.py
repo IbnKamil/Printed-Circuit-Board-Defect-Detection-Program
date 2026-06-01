@@ -40,7 +40,10 @@ def test_train_and_predict_single_image_classifier(tmp_path: Path) -> None:
     )
 
     assert checkpoint_path.exists()
-    assert "accuracy" in metrics
+    assert "validation" in metrics
+    assert "test" in metrics
+    assert "dataset" in metrics
+    assert "accuracy" in metrics["validation"]
     assert prediction["label"] in {"normal", "defective"}
     assert 0.0 <= prediction["confidence"] <= 1.0
 

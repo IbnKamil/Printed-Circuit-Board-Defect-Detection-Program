@@ -7,3 +7,6 @@ __pycache__/
 outputs/
 assets/sample/
 *.pt
+data/single_image/normal/
+data/single_image/defective/
+!data/single_image/README.md
