@@ -56,13 +56,20 @@ def ensure_single_image_model(
 def format_single_image_startup_report(
     summary: dict[str, Any],
     dataset_root: Path,
+    primary_metrics: dict[str, Any] | None = None,
 ) -> str:
     """Format startup information as a readable PyCharm console report."""
 
     checkpoint_path = summary.get("checkpoint_path") or "not found"
     image_size = summary.get("image_size") or "unknown"
     metrics = summary.get("metrics", {}) or {}
-    dataset = summary.get("dataset") or metrics.get("dataset", {}) or {}
+    primary_metrics = primary_metrics or {}
+    dataset = (
+        primary_metrics.get("dataset")
+        or summary.get("dataset")
+        or metrics.get("dataset", {})
+        or {}
+    )
     lines = [
         "",
         "========== PCB STREAMLIT STARTUP REPORT =========",
@@ -71,6 +78,9 @@ def format_single_image_startup_report(
         "  *_temp.jpg : NORMAL, template image is known defect-free",
         "  *_test.jpg : compared with matching hidden *_temp.jpg template",
         "  Note       : This is the method used for DeepPCB images in the UI.",
+        "",
+        "PRIMARY METHOD METRICS",
+        _format_primary_metrics_table(primary_metrics),
         "",
         "DATASET",
         f"  DeepPCB root : {dataset_root}",
@@ -102,6 +112,37 @@ def format_single_image_startup_report(
         )
 
     lines.append("==================================================")
+    return "\n".join(lines)
+
+
+def _format_primary_metrics_table(primary_metrics: dict[str, Any]) -> str:
+    if not primary_metrics:
+        return "  Metrics    : not computed yet"
+
+    lines = ["  Split        Samples   Accuracy  Precision     Recall         F1     TN     FP     FN     TP"]
+    for split_name in ("validation", "test"):
+        values = primary_metrics.get(split_name, {})
+        if not values:
+            continue
+        lines.append(
+            "  "
+            f"{split_name:<10} "
+            f"{int(values.get('samples', 0)):>7} "
+            f"{_fmt(values.get('accuracy')):>10} "
+            f"{_fmt(values.get('precision')):>10} "
+            f"{_fmt(values.get('recall')):>10} "
+            f"{_fmt(values.get('f1')):>10} "
+            f"{int(values.get('true_negative', 0)):>6} "
+            f"{int(values.get('false_positive', 0)):>6} "
+            f"{int(values.get('false_negative', 0)):>6} "
+            f"{int(values.get('true_positive', 0)):>6}"
+        )
+    lines.extend(
+        [
+            "  These metrics evaluate the actual Streamlit DeepPCB workflow:",
+            "  *_temp -> normal, *_test -> hidden template comparison.",
+        ]
+    )
     return "\n".join(lines)
 
 

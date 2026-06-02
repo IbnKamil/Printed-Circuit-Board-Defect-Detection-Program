@@ -39,10 +39,41 @@ def test_startup_report_is_readable_and_labels_fallback_metrics() -> None:
         },
     }
 
-    report = format_single_image_startup_report(summary, Path("data/deeppcb/PCBData"))
+    primary_metrics = {
+        "validation": {
+            "samples": 450,
+            "accuracy": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "true_negative": 226,
+            "false_positive": 0,
+            "false_negative": 0,
+            "true_positive": 224,
+        },
+        "test": {
+            "samples": 450,
+            "accuracy": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "true_negative": 220,
+            "false_positive": 0,
+            "false_negative": 0,
+            "true_positive": 230,
+        },
+    }
+
+    report = format_single_image_startup_report(
+        summary,
+        Path("data/deeppcb/PCBData"),
+        primary_metrics,
+    )
 
     assert "PRIMARY METHOD" in report
+    assert "PRIMARY METHOD METRICS" in report
     assert "FALLBACK CNN CHECKPOINT" in report
+    assert "1.000" in report
     assert "not used for *_temp/*_test" in report
     assert "validation" in report
     assert "0.542" in report

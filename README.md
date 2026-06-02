@@ -244,16 +244,29 @@ streamlit run app/streamlit_app.py
 В консоль PyCharm выводится читабельный отчет:
 
 - основной метод inference для DeepPCB;
+- validation/test метрики основного метода: accuracy, precision, recall, F1,
+  confusion matrix counts `TN/FP/FN/TP`;
 - путь к DeepPCB dataset;
-- train/validation/test counts, если они сохранены в checkpoint;
+- train/validation/test counts;
 - наличие или отсутствие fallback checkpoint;
 - validation/test метрики fallback CNN, если checkpoint есть.
+
+Метрики основного метода вычисляются один раз и кэшируются в:
+
+```text
+outputs/primary_deeppcb_metrics.json
+outputs/primary_deeppcb_predictions.csv
+```
+
+CSV-файл содержит конкретные пути изображений, split, true label и predicted
+label. Так можно увидеть, какие именно изображения попали в validation/test.
 
 Если в отчете fallback CNN показывает accuracy около `0.5`, это не означает,
 что текущая DeepPCB-проверка работает плохо. Эта CNN обучалась классифицировать
 всё изображение целиком и плохо подходит для маленьких локальных дефектов.
 Основной Streamlit-сценарий для файлов `*_temp.jpg` и `*_test.jpg` использует
-reference-based сравнение с template и не опирается на эту fallback accuracy.
+reference-based сравнение с template и оценивается в блоке
+`PRIMARY METHOD METRICS`.
 
 Датасет DeepPCB уже добавлен в проект:
 

@@ -12,6 +12,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from pcb_defect_detection.evaluation import load_or_compute_primary_metrics
 from pcb_defect_detection.inference.single_image import predict_uploaded_pcb_image
 from pcb_defect_detection.training.single_image_startup import (
     format_single_image_startup_report,
@@ -22,18 +23,25 @@ from pcb_defect_detection.training.train_single_image_classifier import (
 
 DEFAULT_SINGLE_MODEL_PATH = ROOT / "outputs" / "single_image_model.pt"
 DEFAULT_DATASET_ROOT = ROOT / "data" / "deeppcb" / "PCBData"
+PRIMARY_METRICS_PATH = ROOT / "outputs" / "primary_deeppcb_metrics.json"
+PRIMARY_PREDICTIONS_PATH = ROOT / "outputs" / "primary_deeppcb_predictions.csv"
 
 
 @st.cache_resource(show_spinner=False)
 def _startup_model_check() -> dict:
     """Log model/dataset information once without blocking UI training."""
 
+    primary_metrics = load_or_compute_primary_metrics(
+        dataset_root=DEFAULT_DATASET_ROOT,
+        metrics_path=PRIMARY_METRICS_PATH,
+        predictions_path=PRIMARY_PREDICTIONS_PATH,
+    )
     if DEFAULT_SINGLE_MODEL_PATH.exists():
         summary = load_single_image_training_summary(DEFAULT_SINGLE_MODEL_PATH)
     else:
         summary = {"checkpoint_path": None}
-    print(format_single_image_startup_report(summary, DEFAULT_DATASET_ROOT))
-    return summary
+    print(format_single_image_startup_report(summary, DEFAULT_DATASET_ROOT, primary_metrics))
+    return {"fallback": summary, "primary": primary_metrics}
 
 
 def _render_status_square(is_defective: bool) -> None:
