@@ -52,7 +52,7 @@ def test_startup_report_is_readable_and_shows_primary_metrics_only() -> None:
     assert "МЕТРИКИ ОСНОВНОГО МЕТОДА" in report
     assert "1.000" in report
     assert "валидация" in report
-    assert "Запасная CNN-модель удалена" in report
+    assert "Запасная CNN-модель удалена" not in report
     assert "FALLBACK CNN CHECKPOINT" not in report
     assert "PRIMARY METHOD" not in report
     assert "0.542" not in report

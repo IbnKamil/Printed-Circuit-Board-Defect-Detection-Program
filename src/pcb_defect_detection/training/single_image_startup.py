@@ -39,7 +39,6 @@ def format_single_image_startup_report(
         _format_dataset_counts(dataset),
         "",
         "ПРИМЕЧАНИЯ",
-        "  Запасная CNN-модель удалена из Streamlit workflow и отчета.",
         "  Метрики выше оценивают фактическое поведение интерфейса на validation/test split.",
         "================================================",
     ]
