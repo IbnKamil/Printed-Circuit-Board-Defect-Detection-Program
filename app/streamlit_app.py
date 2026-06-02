@@ -17,11 +17,6 @@ from pcb_defect_detection.inference.single_image import predict_uploaded_pcb_ima
 from pcb_defect_detection.training.single_image_startup import (
     format_single_image_startup_report,
 )
-from pcb_defect_detection.training.train_single_image_classifier import (
-    load_single_image_training_summary,
-)
-
-DEFAULT_SINGLE_MODEL_PATH = ROOT / "outputs" / "single_image_model.pt"
 DEFAULT_DATASET_ROOT = ROOT / "data" / "deeppcb" / "PCBData"
 PRIMARY_METRICS_PATH = ROOT / "outputs" / "primary_deeppcb_metrics.json"
 PRIMARY_PREDICTIONS_PATH = ROOT / "outputs" / "primary_deeppcb_predictions.csv"
@@ -36,12 +31,8 @@ def _startup_model_check() -> dict:
         metrics_path=PRIMARY_METRICS_PATH,
         predictions_path=PRIMARY_PREDICTIONS_PATH,
     )
-    if DEFAULT_SINGLE_MODEL_PATH.exists():
-        summary = load_single_image_training_summary(DEFAULT_SINGLE_MODEL_PATH)
-    else:
-        summary = {"checkpoint_path": None}
-    print(format_single_image_startup_report(summary, DEFAULT_DATASET_ROOT, primary_metrics))
-    return {"fallback": summary, "primary": primary_metrics}
+    print(format_single_image_startup_report(DEFAULT_DATASET_ROOT, primary_metrics))
+    return {"primary": primary_metrics}
 
 
 def _render_status_square(is_defective: bool) -> None:
@@ -91,7 +82,6 @@ else:
             image_rgb=image_rgb,
             filename=uploaded_image.name,
             dataset_root=DEFAULT_DATASET_ROOT,
-            checkpoint_path=DEFAULT_SINGLE_MODEL_PATH,
         )
         st.image(result.overlay_rgb, caption="Результат анализа", use_container_width=True)
         _render_status_square(result.is_defective)

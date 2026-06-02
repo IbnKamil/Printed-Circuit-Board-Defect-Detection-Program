@@ -6,12 +6,13 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+import cv2
+import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset, Subset, random_split
 
 from pcb_defect_detection.config import SUPPORTED_IMAGE_EXTENSIONS
-from pcb_defect_detection.models.single_image_cnn import pil_to_rgb_array, preprocess_single_image
 from pcb_defect_detection.utils.errors import DatasetError
 
 NORMAL_FOLDER_NAMES = {"normal", "good", "ok", "no_defect", "nodefect"}
@@ -37,10 +38,9 @@ class SingleImageFolderDataset(Dataset):
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         path, label = self.samples[index]
         with Image.open(path) as image:
-            tensor = preprocess_single_image(
-                pil_to_rgb_array(image),
-                image_size=self.image_size,
-            )
+            rgb = np.asarray(image.convert("RGB"))
+        resized = cv2.resize(rgb, (self.image_size, self.image_size), interpolation=cv2.INTER_AREA)
+        tensor = torch.from_numpy(np.transpose(resized.astype(np.float32) / 255.0, (2, 0, 1)))
         return tensor, torch.tensor(label, dtype=torch.long)
 
 

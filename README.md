@@ -224,21 +224,20 @@ streamlit run app/streamlit_app.py
 - зеленый квадрат `NORMAL` - плата в нормальном состоянии;
 - красный квадрат `DEFECT` - плата с дефектом.
 
-Чтобы избежать случайной классификации 50/50 на маленьких дефектах, Streamlit
-использует DeepPCB-aware single-upload логику:
+Streamlit использует только DeepPCB-aware reference-based логику:
 
 - если загружен файл `*_temp.jpg`, он считается эталонным изображением без
   дефекта и получает `NORMAL`;
 - если загружен файл `*_test.jpg`, приложение само находит соответствующий
   `*_temp.jpg` внутри `data/deeppcb/PCBData/` и выполняет reference-based
   сравнение через основной detector;
-- если имя файла не похоже на DeepPCB, может использоваться fallback
-  single-image CNN checkpoint `outputs/single_image_model.pt`, если он есть.
+- если имя файла не похоже на DeepPCB (`*_temp` или `*_test`), файл отклоняется
+  с понятным сообщением.
 
-Таким образом пользователь загружает одно изображение, но для DeepPCB программа
-внутри использует правильную постановку `template + tested`. Это намного
-надежнее, чем классифицировать всё изображение целиком CNN-моделью, потому что
-дефекты занимают малую часть кадра.
+Fallback single-image CNN удален из Streamlit workflow и отчета, потому что он
+давал случайные метрики на маленьких локальных дефектах DeepPCB. Таким образом
+пользователь загружает одно изображение, но для DeepPCB программа внутри
+использует правильную постановку `template + tested`.
 
 При запуске Streamlit больше не обучает модель автоматически и не блокирует UI.
 В консоль PyCharm выводится читабельный отчет:
@@ -247,9 +246,7 @@ streamlit run app/streamlit_app.py
 - validation/test метрики основного метода: accuracy, precision, recall, F1,
   confusion matrix counts `TN/FP/FN/TP`;
 - путь к DeepPCB dataset;
-- train/validation/test counts;
-- наличие или отсутствие fallback checkpoint;
-- validation/test метрики fallback CNN, если checkpoint есть.
+- train/validation/test counts.
 
 Метрики основного метода вычисляются один раз и кэшируются в:
 
@@ -260,13 +257,6 @@ outputs/primary_deeppcb_predictions.csv
 
 CSV-файл содержит конкретные пути изображений, split, true label и predicted
 label. Так можно увидеть, какие именно изображения попали в validation/test.
-
-Если в отчете fallback CNN показывает accuracy около `0.5`, это не означает,
-что текущая DeepPCB-проверка работает плохо. Эта CNN обучалась классифицировать
-всё изображение целиком и плохо подходит для маленьких локальных дефектов.
-Основной Streamlit-сценарий для файлов `*_temp.jpg` и `*_test.jpg` использует
-reference-based сравнение с template и оценивается в блоке
-`PRIMARY METHOD METRICS`.
 
 Датасет DeepPCB уже добавлен в проект:
 
@@ -281,9 +271,9 @@ data/deeppcb/PCBData/
 *_test.jpg  -> ожидается DEFECT
 ```
 
-Если нужен другой датасет или произвольные фотографии, потребуется обученный
-single-image checkpoint, но для DeepPCB рекомендуется использовать описанный
-скрытый template lookup.
+Если нужен другой датасет или произвольные фотографии без имен DeepPCB, нужно
+добавлять отдельный метод регистрации/эталонного сравнения. Текущий Streamlit
+режим сознательно ограничен DeepPCB, чтобы результаты были технически корректны.
 
 ## 9. Обучение CNN-классификатора патчей
 
