@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+outputs/
+assets/sample/
+*.pt
+data/single_image/normal/
+data/single_image/defective/
+!data/single_image/README.md
